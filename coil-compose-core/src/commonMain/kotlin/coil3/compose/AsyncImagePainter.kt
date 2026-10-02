@@ -176,6 +176,14 @@ class AsyncImagePainter internal constructor(
 
     internal lateinit var scope: CoroutineScope
     internal var transform = DefaultTransform
+        set(value) {
+            if (field !== value) {
+                field = value
+                if (isRemembered && rawState != State.Empty) {
+                    updateState(rawState)
+                }
+            }
+        }
     internal var onState: ((State) -> Unit)? = null
     internal var contentScale = ContentScale.Fit
     internal var filterQuality = DefaultFilterQuality
@@ -185,6 +193,7 @@ class AsyncImagePainter internal constructor(
         set(value) {
             if (field != value) {
                 field = value
+                rawState = State.Empty
                 restart()
                 if (value != null) {
                     inputFlow.value = value
@@ -197,6 +206,7 @@ class AsyncImagePainter internal constructor(
 
     private val stateFlow: MutableStateFlow<State> = MutableStateFlow(State.Empty)
     val state: StateFlow<State> = stateFlow.asStateFlow()
+    private var rawState: State = State.Empty
 
     override val intrinsicSize: Size
         get() = painter?.intrinsicSize ?: Size.Unspecified
@@ -305,8 +315,9 @@ class AsyncImagePainter internal constructor(
     }
 
     private fun updateState(state: State) {
+        rawState = state
         val previous = stateFlow.value
-        val current = transform(state)
+        val current = transform(rawState)
         stateFlow.value = current
         painter = maybeNewCrossfadePainter(previous, current, contentScale) ?: current.painter
 
